@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   postgres:
-    image: postgres:15-alpine
+    image: postgres:16-alpine
     container_name: medicore_db
     environment:
       POSTGRES_DB: medicore
@@ -14,7 +14,7 @@ services:
       - postgres_data:/var/lib/postgresql/data
       - ./backend/migrations/init.sql:/docker-entrypoint-initdb.d/01-init.sql
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U medicore_admin -d medicore"]
+      test: [ "CMD-SHELL", "pg_isready -U medicore_admin -d medicore" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -29,7 +29,7 @@ services:
     volumes:
       - redis_data:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "-a", "medicore_redis_2024", "ping"]
+      test: [ "CMD", "redis-cli", "-a", "medicore_redis_2024", "ping" ]
       interval: 10s
       timeout: 5s
       retries: 5

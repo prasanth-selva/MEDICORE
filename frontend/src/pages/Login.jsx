@@ -12,8 +12,10 @@ export default function Login() {
     const [showPw, setShowPw] = useState(false);
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
-    const { login, register } = useAuth();
+    const { login, register, demoLogin } = useAuth();
     const navigate = useNavigate();
+
+    const routes = { admin: '/admin', receptionist: '/admin', doctor: '/doctor', pharmacist: '/pharmacy', patient: '/patient' };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -22,11 +24,9 @@ export default function Login() {
         try {
             if (isLogin) {
                 const data = await login(email, password);
-                const routes = { admin: '/admin', receptionist: '/admin', doctor: '/doctor', pharmacist: '/pharmacy', patient: '/patient' };
                 navigate(routes[data.user.role] || '/');
             } else {
                 await register({ name, email, password, role });
-                const routes = { admin: '/admin', doctor: '/doctor', pharmacist: '/pharmacy', patient: '/patient' };
                 navigate(routes[role] || '/');
             }
         } catch (err) {
@@ -36,7 +36,21 @@ export default function Login() {
         }
     };
 
-    // Demo login buttons
+    const handleDemoLogin = async (demoEmail, demoRole) => {
+        setError('');
+        setLoading(true);
+        try {
+            setEmail(demoEmail);
+            setPassword('admin123');
+            const data = await login(demoEmail, 'admin123');
+            navigate(routes[data.user.role || demoRole] || '/');
+        } catch (err) {
+            setError(err.response?.data?.error || 'Something went wrong');
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const demoLogins = [
         { role: 'admin', label: 'Admin', email: 'admin@medicore.com', icon: '👑' },
         { role: 'doctor', label: 'Doctor', email: 'dr.sharma@medicore.com', icon: '🩺' },
@@ -129,7 +143,7 @@ export default function Login() {
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 8 }}>
                     {demoLogins.map(d => (
                         <button key={d.role} className="btn btn-outline btn-sm" style={{ justifyContent: 'center' }}
-                            onClick={() => { setEmail(d.email); setPassword('admin123'); setIsLogin(true); }}>
+                            onClick={() => handleDemoLogin(d.email, d.role)} disabled={loading}>
                             <span>{d.icon}</span> {d.label}
                         </button>
                     ))}
