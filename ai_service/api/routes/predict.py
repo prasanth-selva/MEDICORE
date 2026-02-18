@@ -112,7 +112,7 @@ MEDICINE_MAP = {
     },
 }
 
-BACKEND_URL = "http://localhost:3000/api"
+BACKEND_URL = "http://localhost:5000/api"
 
 # ─── Request/Response Models ───────────────────────────────
 class PredictionRequest(BaseModel):

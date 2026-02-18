@@ -4,6 +4,7 @@ import { useSocket } from '../shared/context/SocketContext';
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { Users, Calendar, DollarSign, Pill, AlertTriangle, Stethoscope, TrendingUp, Activity, Clock, Package, Upload, Plus, X, FileText, UserPlus } from 'lucide-react';
 import api from '../shared/utils/api';
+import SOSPanel from '../shared/components/SOSPanel';
 
 const COLORS = ['#0D7377', '#06A77D', '#457B9D', '#F4A261', '#E63946', '#2D6A4F'];
 
@@ -192,13 +193,8 @@ export default function AdminDashboard() {
 
     return (
         <div className="animate-fade">
-            {/* SOS Alert Banner */}
-            {sosAlerts.length > 0 && (
-                <div className="alert-banner danger">
-                    <AlertTriangle size={16} /> <strong>Active SOS Alert!</strong> — {sosAlerts[0].Patient?.first_name} needs emergency assistance
-                    <button className="btn btn-danger btn-sm" style={{ marginLeft: 'auto' }}>Respond</button>
-                </div>
-            )}
+            {/* SOS Emergency Panel */}
+            <SOSPanel compact />
 
             {/* Action Buttons */}
             <div style={{ display: 'flex', gap: 10, marginBottom: 16, flexWrap: 'wrap' }}>

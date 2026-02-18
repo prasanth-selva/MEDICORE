@@ -13,17 +13,24 @@ import {
 const NAV_CONFIG = {
     admin: [
         { icon: LayoutDashboard, label: 'Dashboard', path: '/admin' },
+        { icon: Users, label: 'Patients', path: '/admin/patients' },
+        { icon: Stethoscope, label: 'Doctors', path: '/admin/doctors' },
+        { icon: Calendar, label: 'Appointments', path: '/admin/appointments' },
         { icon: Package, label: 'Inventory', path: '/admin/inventory' },
         { icon: DollarSign, label: 'Billing', path: '/admin/billing' },
         { icon: Brain, label: 'AI Predictions', path: '/admin/predictions' },
     ],
     receptionist: [
         { icon: LayoutDashboard, label: 'Dashboard', path: '/reception' },
+        { icon: Users, label: 'Patients', path: '/reception/patients' },
+        { icon: Calendar, label: 'Appointments', path: '/reception/appointments' },
         { icon: DollarSign, label: 'Billing', path: '/reception/billing' },
+        { icon: AlertTriangle, label: 'SOS Alerts', path: '/reception/sos' },
     ],
     doctor: [
         { icon: LayoutDashboard, label: 'Dashboard', path: '/doctor' },
         { icon: Stethoscope, label: 'Consultation', path: '/doctor/consultation' },
+        { icon: Calendar, label: 'Appointments', path: '/doctor/appointments' },
     ],
     pharmacist: [
         { icon: LayoutDashboard, label: 'Dashboard', path: '/pharmacy' },

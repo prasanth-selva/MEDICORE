@@ -15,7 +15,7 @@ const LOCKOUT_MINUTES = 15;
 const authController = {
     async register(req, res, next) {
         try {
-            const { name, email, password, role, phone } = req.body;
+            const { name, email, password, role, phone, first_name, last_name, date_of_birth, gender } = req.body;
             const existingUser = await User.findOne({ where: { email } });
             if (existingUser) {
                 return res.status(409).json({ error: 'Email already registered', code: 'AUTH_005' });
@@ -25,9 +25,31 @@ const authController = {
 
             auditLog('USER_REGISTERED', { userId: user.id, email: user.email, role: user.role });
 
+            // Auto-create Patient record when registering as patient
+            let profile = null;
+            if ((role || 'patient') === 'patient') {
+                const nameParts = name.trim().split(' ');
+                const fName = first_name || nameParts[0] || name;
+                const lName = last_name || nameParts.slice(1).join(' ') || 'Patient';
+                const patientCode = 'MC-' + new Date().getFullYear() + '-' + Math.floor(1000 + Math.random() * 9000);
+                profile = await Patient.create({
+                    user_id: user.id,
+                    patient_code: patientCode,
+                    first_name: fName,
+                    last_name: lName,
+                    phone: phone || '',
+                    email: email,
+                    date_of_birth: date_of_birth || null,
+                    gender: gender || null,
+                    consent_given: true,
+                    consent_timestamp: new Date(),
+                });
+            }
+
             const tokens = generateTokens(user);
             res.status(201).json({
                 user: { id: user.id, name: user.name, email: user.email, role: user.role },
+                profile,
                 ...tokens,
             });
         } catch (err) { next(err); }

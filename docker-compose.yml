@@ -9,7 +9,7 @@ services:
       POSTGRES_USER: medicore_admin
       POSTGRES_PASSWORD: medicore_secure_2024
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./backend/migrations/init.sql:/docker-entrypoint-initdb.d/01-init.sql

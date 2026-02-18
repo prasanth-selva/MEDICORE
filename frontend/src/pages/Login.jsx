@@ -8,6 +8,7 @@ export default function Login() {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [name, setName] = useState('');
+    const [phone, setPhone] = useState('');
     const [role, setRole] = useState('patient');
     const [showPw, setShowPw] = useState(false);
     const [error, setError] = useState('');
@@ -26,7 +27,7 @@ export default function Login() {
                 const data = await login(email, password);
                 navigate(routes[data.user.role] || '/');
             } else {
-                await register({ name, email, password, role });
+                await register({ name, email, password, role, phone });
                 navigate(routes[role] || '/');
             }
         } catch (err) {
@@ -95,6 +96,13 @@ export default function Login() {
                         <div className="input-group">
                             <label className="input-label">Full Name</label>
                             <input className="input" placeholder="Dr. Arun Sharma" value={name} onChange={e => setName(e.target.value)} required />
+                        </div>
+                    )}
+
+                    {!isLogin && (
+                        <div className="input-group">
+                            <label className="input-label">Phone Number</label>
+                            <input className="input" type="tel" placeholder="9876543210" value={phone} onChange={e => setPhone(e.target.value)} />
                         </div>
                     )}
 

@@ -4,6 +4,7 @@ import { useSocket } from '../shared/context/SocketContext';
 import { useNavigate } from 'react-router-dom';
 import { Users, Clock, CheckCircle, AlertCircle, Mic, Send, Plus, X, Search, FileText, Volume2, History, Repeat, AlertTriangle, LogOut } from 'lucide-react';
 import api from '../shared/utils/api';
+import SOSPanel from '../shared/components/SOSPanel';
 
 const DISEASE_SUGGESTIONS = {
     'fever': { name: 'Viral Fever', items: [{ medicine: 'Paracetamol', dosage: '500mg', frequency: 'TID', duration: '3 days', route: 'Oral' }, { medicine: 'Cetirizine', dosage: '10mg', frequency: 'HS', duration: '3 days', route: 'Oral' }] },
@@ -249,6 +250,9 @@ export default function DoctorDashboard() {
 
     return (
         <div className="animate-fade">
+            {/* SOS Emergency Panel */}
+            <SOSPanel compact />
+
             {/* Leave Confirmation Dialog */}
             {showLeaveConfirm && (
                 <div className="confirm-overlay" onClick={(e) => { if (e.target === e.currentTarget) setShowLeaveConfirm(false); }}>

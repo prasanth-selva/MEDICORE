@@ -4,7 +4,21 @@ const { Op } = require('sequelize');
 const appointmentController = {
     async create(req, res, next) {
         try {
-            const { patient_id, doctor_id, scheduled_time, triage_severity, primary_symptom, reason, is_walk_in } = req.body;
+            const {
+                patient_id, doctor_id, triage_severity, primary_symptom, reason, is_walk_in,
+                // Accept both formats
+                scheduled_time,
+                appointment_date, appointment_time,
+            } = req.body;
+
+            // Build scheduled_time from separate date+time if not provided as ISO
+            let finalScheduledTime = scheduled_time;
+            if (!finalScheduledTime && appointment_date) {
+                const timeStr = appointment_time || '10:00';
+                finalScheduledTime = new Date(`${appointment_date}T${timeStr}:00`);
+            }
+            if (!finalScheduledTime) finalScheduledTime = new Date();
+
             const today = new Date();
             today.setHours(0, 0, 0, 0);
             const tomorrow = new Date(today);
@@ -20,7 +34,7 @@ const appointmentController = {
 
             const appointment = await Appointment.create({
                 patient_id, doctor_id,
-                scheduled_time: scheduled_time || new Date(),
+                scheduled_time: finalScheduledTime,
                 triage_severity, primary_symptom, reason,
                 is_walk_in: is_walk_in || false,
                 queue_position: queueCount + 1,

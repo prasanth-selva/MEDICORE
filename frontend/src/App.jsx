@@ -5,6 +5,8 @@ import ErrorBoundary from './shared/components/ErrorBoundary';
 import Login from './pages/Login';
 import DashboardLayout from './shared/components/DashboardLayout';
 import AdminDashboard from './admin/Dashboard';
+import AdminPatients from './admin/Patients';
+import AdminDoctors from './admin/Doctors';
 import DoctorDashboard from './doctor/Dashboard';
 import DoctorConsultation from './doctor/Consultation';
 import PharmacyDashboard from './pharmacy/Dashboard';
@@ -16,6 +18,7 @@ import PatientSOS from './patient/SOSEmergency';
 import AIPredictions from './pharmacy/AIPredictions';
 import Billing from './pharmacy/Billing';
 import ReceptionDashboard from './reception/Dashboard';
+import AppointmentsPage from './shared/components/AppointmentsPage';
 
 function ProtectedRoute({ children }) {
     const { user, loading } = useAuth();
@@ -54,6 +57,9 @@ function AppRoutes() {
             {/* Admin Portal */}
             <Route path="/admin" element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>
                 <Route index element={<AdminDashboard />} />
+                <Route path="patients" element={<AdminPatients />} />
+                <Route path="doctors" element={<AdminDoctors />} />
+                <Route path="appointments" element={<AppointmentsPage />} />
                 <Route path="inventory" element={<PharmacyInventory />} />
                 <Route path="billing" element={<Billing />} />
                 <Route path="predictions" element={<AIPredictions />} />
@@ -64,6 +70,7 @@ function AppRoutes() {
                 <Route index element={<DoctorDashboard />} />
                 <Route path="consultation" element={<DoctorConsultation />} />
                 <Route path="consultation/:patientId" element={<DoctorConsultation />} />
+                <Route path="appointments" element={<AppointmentsPage />} />
             </Route>
 
             {/* Pharmacy Portal */}
@@ -85,6 +92,9 @@ function AppRoutes() {
             {/* Reception Portal */}
             <Route path="/reception" element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>
                 <Route index element={<ReceptionDashboard />} />
+                <Route path="patients" element={<AdminPatients />} />
+                <Route path="appointments" element={<AppointmentsPage />} />
+                <Route path="sos" element={<PatientSOS />} />
                 <Route path="billing" element={<Billing />} />
             </Route>
 

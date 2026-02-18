@@ -3,8 +3,15 @@ const router = express.Router();
 const patientController = require('../controllers/patientController');
 const { authenticate, authorize } = require('../middleware/auth');
 const { validate, patientRules, uuidParam, paginationQuery } = require('../middleware/validator');
+const multer = require('multer');
+
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
 
 router.use(authenticate);
+
+// CSV/XLSX import (admin/receptionist only)
+router.post('/import', authorize('admin', 'receptionist'), upload.single('file'), patientController.importCSV);
+
 
 /**
  * @swagger

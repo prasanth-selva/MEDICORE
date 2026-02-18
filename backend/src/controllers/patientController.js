@@ -1,8 +1,61 @@
 const { Patient, User, Appointment, Prescription, DiseaseRecord } = require('../models');
 const { Op } = require('sequelize');
 const { v4: uuidv4 } = require('uuid');
+const Papa = require('papaparse');
+const bcrypt = require('bcryptjs');
 
 const patientController = {
+    async importCSV(req, res, next) {
+        try {
+            if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+            const csvText = req.file.buffer.toString('utf-8');
+            const parsed = Papa.parse(csvText, { header: true, skipEmptyLines: true });
+            const results = { imported: 0, errors: [], total: parsed.data.length };
+
+            for (let i = 0; i < parsed.data.length; i++) {
+                const row = parsed.data[i];
+                const errors = [];
+                if (!row.first_name) errors.push('Missing first_name');
+                if (!row.phone) errors.push('Missing phone');
+                if (errors.length > 0) { results.errors.push({ row: i + 1, data: row, errors }); continue; }
+
+                try {
+                    const patientCode = 'MC-' + new Date().getFullYear() + '-' + Math.floor(1000 + Math.random() * 9000);
+                    let userId = null;
+                    if (row.email) {
+                        const existingUser = await User.findOne({ where: { email: row.email.toLowerCase() } });
+                        if (!existingUser) {
+                            const password_hash = await bcrypt.hash(row.password || 'MediCore@2024', 12);
+                            const user = await User.create({ name: `${row.first_name} ${row.last_name || ''}`.trim(), email: row.email.toLowerCase(), password_hash, role: 'patient', phone: row.phone });
+                            userId = user.id;
+                        } else {
+                            userId = existingUser.id;
+                        }
+                    }
+                    await Patient.create({
+                        user_id: userId,
+                        patient_code: patientCode,
+                        first_name: row.first_name,
+                        last_name: row.last_name || '',
+                        phone: row.phone,
+                        email: row.email || null,
+                        age: parseInt(row.age) || null,
+                        gender: row.gender || null,
+                        blood_group: row.blood_group || null,
+                        address: row.address || null,
+                        city: row.city || null,
+                        consent_given: true,
+                        consent_timestamp: new Date(),
+                    });
+                    results.imported++;
+                } catch (err) {
+                    results.errors.push({ row: i + 1, data: row, errors: [err.message] });
+                }
+            }
+            res.json(results);
+        } catch (err) { next(err); }
+    },
+
     async create(req, res, next) {
         try {
             const patientCode = 'MC-' + new Date().getFullYear() + '-' + Math.floor(1000 + Math.random() * 9000);

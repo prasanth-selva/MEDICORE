@@ -3,6 +3,7 @@ import { useAuth } from '../shared/context/AuthContext';
 import { useSocket } from '../shared/context/SocketContext';
 import { Stethoscope, Phone, Calendar, Clock, MapPin, Star, Search, Filter, X, CheckCircle, XCircle, AlertTriangle } from 'lucide-react';
 import api from '../shared/utils/api';
+import toast from 'react-hot-toast';
 
 const STATUS_MAP = {
     available: { label: 'Available', color: 'var(--success)', badge: 'badge-success', dot: '🟢' },
@@ -15,7 +16,7 @@ const STATUS_MAP = {
 
 export default function DoctorBoard() {
     const { socket } = useSocket();
-    const { profile } = useAuth();
+    const { profile, setProfile } = useAuth();
     const [doctors, setDoctors] = useState([]);
     const [search, setSearch] = useState('');
     const [filterSpec, setFilterSpec] = useState('all');
@@ -24,6 +25,7 @@ export default function DoctorBoard() {
     const [loading, setLoading] = useState(true);
     const [bookingForm, setBookingForm] = useState({ date: '', time: '10:00', reason: '' });
     const [bookingMsg, setBookingMsg] = useState('');
+    const [patientId, setPatientId] = useState(profile?.id || null);
     const refreshRef = useRef(null);
 
     const fetchDoctors = async () => {
@@ -41,6 +43,17 @@ export default function DoctorBoard() {
         }
         setLoading(false);
     };
+
+    // Fetch patient profile if not loaded yet (handles newly registered patients)
+    useEffect(() => {
+        if (profile?.id) {
+            setPatientId(profile.id);
+        } else {
+            api.get('/auth/profile').then(res => {
+                if (res.data?.profile?.id) setPatientId(res.data.profile.id);
+            }).catch(() => { });
+        }
+    }, [profile]);
 
     useEffect(() => { fetchDoctors(); }, []);
 
@@ -73,18 +86,23 @@ export default function DoctorBoard() {
             setBookingMsg('Please fill date and reason.');
             return;
         }
+        if (!patientId) {
+            setBookingMsg('Patient profile not found. Please complete your profile first.');
+            return;
+        }
         try {
             await api.post('/appointments', {
-                patient_id: profile?.id,
+                patient_id: patientId,
                 doctor_id: showBooking.id,
                 appointment_date: bookingForm.date,
                 appointment_time: bookingForm.time,
                 reason: bookingForm.reason,
             });
             setBookingMsg('Appointment booked successfully! ✓');
+            toast.success('Appointment booked!');
             setTimeout(() => { setShowBooking(null); setBookingMsg(''); setBookingForm({ date: '', time: '10:00', reason: '' }); }, 2000);
-        } catch {
-            setBookingMsg('Booking failed. Please try again.');
+        } catch (err) {
+            setBookingMsg(err.response?.data?.error || 'Booking failed. Please try again.');
         }
     };
 
