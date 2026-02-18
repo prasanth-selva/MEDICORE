@@ -1,6 +1,7 @@
-import { Routes, Route, Navigate, useLocation, Link } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './shared/context/AuthContext';
 import { SocketProvider } from './shared/context/SocketContext';
+import ErrorBoundary from './shared/components/ErrorBoundary';
 import Login from './pages/Login';
 import DashboardLayout from './shared/components/DashboardLayout';
 import AdminDashboard from './admin/Dashboard';
@@ -14,10 +15,18 @@ import PatientRecords from './patient/MyRecords';
 import PatientSOS from './patient/SOSEmergency';
 import AIPredictions from './pharmacy/AIPredictions';
 import Billing from './pharmacy/Billing';
+import ReceptionDashboard from './reception/Dashboard';
 
 function ProtectedRoute({ children }) {
     const { user, loading } = useAuth();
-    if (loading) return <div className="loading-container"><div className="spinner"></div><span>Loading MediCore...</span></div>;
+    if (loading) return (
+        <div className="loading-container">
+            <div className="loading-pulse">
+                <div className="loading-logo"><span>M</span></div>
+                <p>Loading MediCore...</p>
+            </div>
+        </div>
+    );
     if (!user) return <Navigate to="/login" replace />;
     return children;
 }
@@ -28,7 +37,8 @@ function AppRoutes() {
     const getDefaultRoute = () => {
         if (!user) return '/login';
         switch (user.role) {
-            case 'admin': case 'receptionist': return '/admin';
+            case 'admin': return '/admin';
+            case 'receptionist': return '/reception';
             case 'doctor': return '/doctor';
             case 'pharmacist': return '/pharmacy';
             case 'patient': return '/patient';
@@ -72,6 +82,12 @@ function AppRoutes() {
                 <Route path="sos" element={<PatientSOS />} />
             </Route>
 
+            {/* Reception Portal */}
+            <Route path="/reception" element={<ProtectedRoute><DashboardLayout /></ProtectedRoute>}>
+                <Route index element={<ReceptionDashboard />} />
+                <Route path="billing" element={<Billing />} />
+            </Route>
+
             <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
     );
@@ -79,10 +95,12 @@ function AppRoutes() {
 
 export default function App() {
     return (
-        <AuthProvider>
-            <SocketProvider>
-                <AppRoutes />
-            </SocketProvider>
-        </AuthProvider>
+        <ErrorBoundary>
+            <AuthProvider>
+                <SocketProvider>
+                    <AppRoutes />
+                </SocketProvider>
+            </AuthProvider>
+        </ErrorBoundary>
     );
 }

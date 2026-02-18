@@ -1,8 +1,31 @@
 const { Billing, Patient, Prescription } = require('../models');
 const { Op } = require('sequelize');
 const sequelize = require('../config/database');
+const { generateInvoicePDF } = require('../services/pdfService');
+const { logger } = require('../middleware/logger');
 
 const billingController = {
+    async downloadInvoice(req, res, next) {
+        try {
+            const bill = await Billing.findByPk(req.params.id, {
+                include: [{ model: Patient }],
+            });
+            if (!bill) return res.status(404).json({ error: 'Bill not found' });
+
+            const pdfBuffer = await generateInvoicePDF({
+                billing: bill.toJSON(),
+                patient: bill.Patient.toJSON(),
+            });
+
+            res.setHeader('Content-Type', 'application/pdf');
+            res.setHeader('Content-Disposition', `attachment; filename=invoice-${bill.invoice_number || bill.id.slice(0, 8)}.pdf`);
+            res.send(pdfBuffer);
+        } catch (err) {
+            logger.error(`Invoice PDF generation failed: ${err.message}`);
+            next(err);
+        }
+    },
+
     async create(req, res, next) {
         try {
             const { patient_id, prescription_id, appointment_id, items, subtotal, tax_amount, discount_amount, total_amount, payment_method, notes } = req.body;

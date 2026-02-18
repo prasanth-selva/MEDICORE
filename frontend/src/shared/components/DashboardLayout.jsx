@@ -1,10 +1,13 @@
+import { useState, useEffect } from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useSocket } from '../context/SocketContext';
+import Breadcrumbs from './Breadcrumbs';
 import {
     LayoutDashboard, Users, Stethoscope, Pill, ClipboardList, BarChart3,
     AlertTriangle, Settings, LogOut, Package, DollarSign, Brain,
-    Calendar, FileText, MapPin, Bell, Activity, Wifi, WifiOff, Heart
+    Calendar, FileText, MapPin, Bell, Activity, Wifi, WifiOff, Heart,
+    Menu, X, Moon, Sun, ChevronDown
 } from 'lucide-react';
 
 const NAV_CONFIG = {
@@ -15,9 +18,8 @@ const NAV_CONFIG = {
         { icon: Brain, label: 'AI Predictions', path: '/admin/predictions' },
     ],
     receptionist: [
-        { icon: LayoutDashboard, label: 'Dashboard', path: '/admin' },
-        { icon: Package, label: 'Inventory', path: '/admin/inventory' },
-        { icon: DollarSign, label: 'Billing', path: '/admin/billing' },
+        { icon: LayoutDashboard, label: 'Dashboard', path: '/reception' },
+        { icon: DollarSign, label: 'Billing', path: '/reception/billing' },
     ],
     doctor: [
         { icon: LayoutDashboard, label: 'Dashboard', path: '/doctor' },
@@ -44,6 +46,30 @@ export default function DashboardLayout() {
     const { connected } = useSocket();
     const location = useLocation();
     const navigate = useNavigate();
+    const [sidebarOpen, setSidebarOpen] = useState(false);
+    const [darkMode, setDarkMode] = useState(() => {
+        return localStorage.getItem('medicore_theme') === 'dark';
+    });
+
+    // Apply dark mode class
+    useEffect(() => {
+        document.documentElement.setAttribute('data-theme', darkMode ? 'dark' : 'light');
+        localStorage.setItem('medicore_theme', darkMode ? 'dark' : 'light');
+    }, [darkMode]);
+
+    // Close sidebar on route change (mobile)
+    useEffect(() => {
+        setSidebarOpen(false);
+    }, [location.pathname]);
+
+    // Close sidebar on Escape
+    useEffect(() => {
+        const handleKeyDown = (e) => {
+            if (e.key === 'Escape') setSidebarOpen(false);
+        };
+        document.addEventListener('keydown', handleKeyDown);
+        return () => document.removeEventListener('keydown', handleKeyDown);
+    }, []);
 
     if (!user) return null;
     const navItems = NAV_CONFIG[user.role] || NAV_CONFIG.admin;
@@ -57,8 +83,13 @@ export default function DashboardLayout() {
 
     return (
         <div className="app-layout">
+            {/* Mobile Overlay */}
+            {sidebarOpen && (
+                <div className="sidebar-overlay" onClick={() => setSidebarOpen(false)} />
+            )}
+
             {/* Sidebar */}
-            <aside className="sidebar">
+            <aside className={`sidebar ${sidebarOpen ? 'sidebar-open' : ''}`}>
                 <div className="sidebar-header">
                     <div className="sidebar-logo">
                         <Activity size={20} />
@@ -67,6 +98,13 @@ export default function DashboardLayout() {
                         <div className="sidebar-title">MediCore</div>
                         <div className="sidebar-subtitle">{TITLES[user.role]}</div>
                     </div>
+                    <button
+                        className="sidebar-close-btn"
+                        onClick={() => setSidebarOpen(false)}
+                        aria-label="Close sidebar"
+                    >
+                        <X size={20} />
+                    </button>
                 </div>
 
                 <nav className="sidebar-nav">
@@ -100,13 +138,30 @@ export default function DashboardLayout() {
             {/* Main Content */}
             <main className="main-content">
                 <header className="top-bar">
-                    <h1 className="top-bar-title">{getPageTitle()}</h1>
+                    <div className="top-bar-left">
+                        <button
+                            className="mobile-menu-btn"
+                            onClick={() => setSidebarOpen(true)}
+                            aria-label="Open menu"
+                        >
+                            <Menu size={20} />
+                        </button>
+                        <h1 className="top-bar-title">{getPageTitle()}</h1>
+                    </div>
                     <div className="top-bar-actions">
+                        <button
+                            className="btn btn-ghost btn-icon theme-toggle"
+                            onClick={() => setDarkMode(!darkMode)}
+                            title={darkMode ? 'Light mode' : 'Dark mode'}
+                        >
+                            {darkMode ? <Sun size={18} /> : <Moon size={18} />}
+                        </button>
                         <button className="btn btn-ghost btn-icon" title="Notifications">
                             <Bell size={18} />
                         </button>
                     </div>
                 </header>
+                <Breadcrumbs />
                 <div className="page-content animate-fade">
                     <Outlet />
                 </div>

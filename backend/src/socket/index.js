@@ -10,7 +10,7 @@ const setupSocket = (io) => {
 
         // Doctor status change
         socket.on('DOCTOR_STATUS_CHANGED', (data) => {
-            io.to('patients').to('admin').to('pharmacy').emit('DOCTOR_STATUS_CHANGED', data);
+            io.to('patients').to('admin').to('pharmacy').to('reception').emit('DOCTOR_STATUS_CHANGED', data);
         });
 
         // Prescription sent from doctor to pharmacy
@@ -32,7 +32,7 @@ const setupSocket = (io) => {
 
         // SOS Emergency alert
         socket.on('SOS_ALERT', (data) => {
-            io.to('doctors').to('pharmacy').to('admin').emit('SOS_ALERT', data);
+            io.to('doctors').to('pharmacy').to('admin').to('reception').emit('SOS_ALERT', data);
         });
 
         // SOS Acknowledged
@@ -42,7 +42,7 @@ const setupSocket = (io) => {
 
         // Queue updated
         socket.on('QUEUE_UPDATED', (data) => {
-            io.to('admin').to('patients').to('doctors').emit('QUEUE_UPDATED', data);
+            io.to('admin').to('patients').to('doctors').to('reception').emit('QUEUE_UPDATED', data);
         });
 
         // Notification
@@ -55,7 +55,28 @@ const setupSocket = (io) => {
         socket.on('disconnect', () => {
             console.log(`❌ Client disconnected: ${socket.id}`);
         });
+
+        // Doctor calls next patient — notify reception
+        socket.on('CALL_NEXT_PATIENT', (data) => {
+            io.to('reception').to('admin').emit('CALL_NEXT_PATIENT', data);
+        });
+
+        // Reception checks in patient — notify doctor
+        socket.on('PATIENT_CHECKED_IN', (data) => {
+            io.to('doctors').to('admin').emit('PATIENT_CHECKED_IN', data);
+        });
+
+        // Reception marks patient ready for doctor
+        socket.on('PATIENT_READY', (data) => {
+            io.to('doctors').to('admin').emit('PATIENT_READY', data);
+        });
+
+        // Doctor signals consultation complete
+        socket.on('CONSULTATION_COMPLETE', (data) => {
+            io.to('reception').to('admin').to('patients').emit('CONSULTATION_COMPLETE', data);
+        });
     });
 };
 
 module.exports = setupSocket;
+

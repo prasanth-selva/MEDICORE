@@ -28,7 +28,8 @@ export function SocketProvider({ children }) {
             if (user.role === 'doctor') rooms.push('doctors');
             if (user.role === 'pharmacist') rooms.push('pharmacy');
             if (user.role === 'patient') rooms.push('patients');
-            if (user.role === 'admin' || user.role === 'receptionist') rooms.push('admin');
+            if (user.role === 'admin') rooms.push('admin');
+            if (user.role === 'receptionist') rooms.push('reception', 'admin');
             rooms.forEach(room => s.emit('JOIN_ROOM', room));
             s.emit('JOIN_ROOM', `user_${user.id}`);
         });

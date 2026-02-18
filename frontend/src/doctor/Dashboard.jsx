@@ -1,8 +1,24 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../shared/context/AuthContext';
 import { useSocket } from '../shared/context/SocketContext';
-import { Users, Clock, CheckCircle, AlertCircle, Mic, Send, Plus, X, Search, FileText } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Users, Clock, CheckCircle, AlertCircle, Mic, Send, Plus, X, Search, FileText, Volume2, History, Repeat, AlertTriangle, LogOut } from 'lucide-react';
 import api from '../shared/utils/api';
+
+const DISEASE_SUGGESTIONS = {
+    'fever': { name: 'Viral Fever', items: [{ medicine: 'Paracetamol', dosage: '500mg', frequency: 'TID', duration: '3 days', route: 'Oral' }, { medicine: 'Cetirizine', dosage: '10mg', frequency: 'HS', duration: '3 days', route: 'Oral' }] },
+    'cold': { name: 'Common Cold', items: [{ medicine: 'Cetirizine', dosage: '10mg', frequency: 'HS', duration: '5 days', route: 'Oral' }, { medicine: 'Steam Inhalation', dosage: '-', frequency: 'BD', duration: '5 days', route: 'Inhalation' }] },
+    'headache': { name: 'Tension Headache', items: [{ medicine: 'Ibuprofen', dosage: '400mg', frequency: 'SOS', duration: '2 days', route: 'Oral' }] },
+    'stomach': { name: 'Gastritis', items: [{ medicine: 'Omeprazole', dosage: '20mg', frequency: 'BD', duration: '5 days', route: 'Oral' }, { medicine: 'Antacid Gel', dosage: '10ml', frequency: 'TID', duration: '3 days', route: 'Oral' }] },
+    'cough': { name: 'Bronchitis', items: [{ medicine: 'Ambroxol', dosage: '30mg', frequency: 'BD', duration: '5 days', route: 'Oral' }, { medicine: 'Dextromethorphan', dosage: '10ml', frequency: 'TID', duration: '3 days', route: 'Oral' }] },
+    'throat': { name: 'Pharyngitis', items: [{ medicine: 'Azithromycin', dosage: '500mg', frequency: 'OD', duration: '3 days', route: 'Oral' }, { medicine: 'Ibuprofen', dosage: '400mg', frequency: 'TID', duration: '3 days', route: 'Oral' }] },
+    'diabetes': { name: 'Type 2 Diabetes', items: [{ medicine: 'Metformin', dosage: '500mg', frequency: 'BD', duration: '30 days', route: 'Oral' }] },
+    'hypertension': { name: 'Hypertension', items: [{ medicine: 'Amlodipine', dosage: '5mg', frequency: 'OD', duration: '30 days', route: 'Oral' }] },
+    'diarrhea': { name: 'Acute Diarrhea', items: [{ medicine: 'ORS', dosage: '1 sachet', frequency: 'TID', duration: '3 days', route: 'Oral' }, { medicine: 'Loperamide', dosage: '2mg', frequency: 'SOS', duration: '2 days', route: 'Oral' }] },
+    'skin': { name: 'Dermatitis', items: [{ medicine: 'Betamethasone Cream', dosage: 'Apply thin layer', frequency: 'BD', duration: '7 days', route: 'Topical' }, { medicine: 'Cetirizine', dosage: '10mg', frequency: 'HS', duration: '5 days', route: 'Oral' }] },
+    'allergy': { name: 'Allergic Reaction', items: [{ medicine: 'Cetirizine', dosage: '10mg', frequency: 'OD', duration: '5 days', route: 'Oral' }, { medicine: 'Montelukast', dosage: '10mg', frequency: 'HS', duration: '7 days', route: 'Oral' }] },
+    'infection': { name: 'Bacterial Infection', items: [{ medicine: 'Amoxicillin', dosage: '500mg', frequency: 'TID', duration: '7 days', route: 'Oral' }, { medicine: 'Paracetamol', dosage: '500mg', frequency: 'TID', duration: '3 days', route: 'Oral' }] },
+};
 
 const STATUSES = [
     { key: 'available', label: 'Available', emoji: '🟢' },
@@ -19,61 +35,96 @@ const ROUTES = ['Oral', 'IV', 'IM', 'Topical', 'Sublingual', 'Inhaled'];
 export default function DoctorDashboard() {
     const { user, profile } = useAuth();
     const { socket } = useSocket();
+    const navigate = useNavigate();
     const [status, setStatus] = useState('available');
     const [queue, setQueue] = useState([]);
-    const [stats, setStats] = useState({ todayCompleted: 0, todayPending: 5, totalPatients: 12 });
+    const [stats, setStats] = useState({ todayCompleted: 0, todayPending: 0, totalPatients: 0 });
+    const [loading, setLoading] = useState(true);
     const [showPrescription, setShowPrescription] = useState(false);
     const [selectedPatient, setSelectedPatient] = useState(null);
     const [rxItems, setRxItems] = useState([]);
     const [diagnosis, setDiagnosis] = useState('');
     const [rxNotes, setRxNotes] = useState('');
-    const [medSearch, setMedSearch] = useState('');
     const [templates, setTemplates] = useState([]);
     const [deliveryConfirmed, setDeliveryConfirmed] = useState(false);
     const [isListening, setIsListening] = useState(false);
+    const [suggestedTemplates, setSuggestedTemplates] = useState([]);
+    const [patientHistory, setPatientHistory] = useState([]);
+    const [callingNext, setCallingNext] = useState(false);
+    const [showLeaveConfirm, setShowLeaveConfirm] = useState(false);
+    const [leaveReason, setLeaveReason] = useState('');
+    const [expectedReturn, setExpectedReturn] = useState('');
+
+    const doctorId = profile?.id;
+
+    const loadDashboardData = async () => {
+        if (!doctorId) return;
+        setLoading(true);
+        try {
+            const [queueRes, statsRes, templatesRes] = await Promise.allSettled([
+                api.get(`/doctors/${doctorId}/queue`),
+                api.get(`/doctors/${doctorId}/stats`),
+                api.get(`/prescriptions/templates?doctor_id=${doctorId}`),
+            ]);
+
+            if (queueRes.status === 'fulfilled') setQueue(queueRes.value.data || []);
+            if (statsRes.status === 'fulfilled') setStats(statsRes.value.data);
+            if (templatesRes.status === 'fulfilled') {
+                const tpls = templatesRes.value.data || [];
+                setTemplates(tpls.map(t => ({ id: t.id, name: t.name, items: t.items || [] })));
+            }
+        } catch (err) {
+            console.error('Doctor dashboard load error:', err);
+        } finally {
+            setLoading(false);
+        }
+    };
 
     useEffect(() => {
-        // Mock queue data
-        setQueue([
-            { id: '1', queue_position: 1, Patient: { first_name: 'Ravi', last_name: 'Kumar', age: 34, blood_group: 'O+', allergies: ['Penicillin'], patient_code: 'MC-2024-1001' }, triage_severity: 2, primary_symptom: 'Fever & Headache', scheduled_time: new Date().toISOString(), status: 'confirmed' },
-            { id: '2', queue_position: 2, Patient: { first_name: 'Priya', last_name: 'Patel', age: 28, blood_group: 'A+', allergies: [], patient_code: 'MC-2024-1002' }, triage_severity: 1, primary_symptom: 'Regular Checkup', scheduled_time: new Date(Date.now() + 1800000).toISOString(), status: 'booked' },
-            { id: '3', queue_position: 3, Patient: { first_name: 'Arjun', last_name: 'Singh', age: 45, blood_group: 'B-', allergies: ['Aspirin'], patient_code: 'MC-2024-1003' }, triage_severity: 4, primary_symptom: 'Chest Pain', scheduled_time: new Date(Date.now() + 3600000).toISOString(), status: 'booked' },
-            { id: '4', queue_position: 4, Patient: { first_name: 'Meena', last_name: 'Iyer', age: 52, blood_group: 'AB+', allergies: [], patient_code: 'MC-2024-1004' }, triage_severity: 2, primary_symptom: 'Joint Pain', scheduled_time: new Date(Date.now() + 5400000).toISOString(), status: 'booked' },
-        ]);
+        loadDashboardData();
+    }, [doctorId]);
 
-        setTemplates([
-            {
-                id: '1', name: '🤒 Standard Flu Pack', items: [
-                    { medicine: 'Paracetamol 500mg', dosage: '500mg', frequency: 'TID (Thrice daily)', duration: '5 days', route: 'Oral' },
-                    { medicine: 'Cetirizine 10mg', dosage: '10mg', frequency: 'HS (At bedtime)', duration: '5 days', route: 'Oral' },
-                    { medicine: 'Vitamin C', dosage: '500mg', frequency: 'OD (Once daily)', duration: '7 days', route: 'Oral' },
-                ]
-            },
-            {
-                id: '2', name: '💊 Hypertension Monthly', items: [
-                    { medicine: 'Amlodipine 5mg', dosage: '5mg', frequency: 'OD (Once daily)', duration: '30 days', route: 'Oral' },
-                    { medicine: 'Telmisartan 40mg', dosage: '40mg', frequency: 'OD (Once daily)', duration: '30 days', route: 'Oral' },
-                ]
-            },
-            {
-                id: '3', name: '🦴 Pain Management', items: [
-                    { medicine: 'Ibuprofen 400mg', dosage: '400mg', frequency: 'BD (Twice daily)', duration: '5 days', route: 'Oral' },
-                    { medicine: 'Pantoprazole 40mg', dosage: '40mg', frequency: 'OD (Once daily)', duration: '5 days', route: 'Oral' },
-                ]
-            },
-        ]);
-
+    useEffect(() => {
         if (socket) {
-            socket.on('PRESCRIPTION_RECEIVED', (data) => { setDeliveryConfirmed(true); setTimeout(() => setDeliveryConfirmed(false), 5000); });
+            socket.on('PRESCRIPTION_RECEIVED', () => { setDeliveryConfirmed(true); setTimeout(() => setDeliveryConfirmed(false), 5000); });
+            socket.on('QUEUE_UPDATED', () => loadDashboardData());
+            socket.on('PATIENT_CHECKED_IN', () => loadDashboardData());
+            return () => {
+                socket.off('PRESCRIPTION_RECEIVED');
+                socket.off('QUEUE_UPDATED');
+                socket.off('PATIENT_CHECKED_IN');
+            };
         }
     }, [socket]);
 
     const handleStatusChange = async (newStatus) => {
-        setStatus(newStatus);
-        if (socket) socket.emit('DOCTOR_STATUS_CHANGED', { doctorId: profile?.id || user.id, name: user.name, status: newStatus });
+        // Show confirmation dialog for leave
+        if (newStatus === 'leave') {
+            setShowLeaveConfirm(true);
+            return;
+        }
+        applyStatus(newStatus);
     };
 
-    const startConsultation = (patient) => {
+    const applyStatus = async (newStatus, extra = {}) => {
+        setStatus(newStatus);
+        if (doctorId) {
+            try {
+                await api.patch(`/doctors/${doctorId}/status`, { status: newStatus, ...extra });
+            } catch (err) {
+                console.error('Status update failed:', err);
+            }
+        }
+    };
+
+    const confirmLeave = () => {
+        applyStatus('leave', { leave_reason: leaveReason, expected_return: expectedReturn });
+        setShowLeaveConfirm(false);
+        setLeaveReason('');
+        setExpectedReturn('');
+    };
+
+    const startConsultation = async (patient) => {
         setSelectedPatient(patient);
         setShowPrescription(true);
         setRxItems([]);
@@ -81,6 +132,51 @@ export default function DoctorDashboard() {
         setRxNotes('');
         setDeliveryConfirmed(false);
         handleStatusChange('with_patient');
+
+        // Load history
+        try {
+            const res = await api.get(`/prescriptions?patient_id=${patient.Patient.id}`);
+            setPatientHistory(res.data?.prescriptions || res.data || []);
+        } catch (err) {
+            console.error('Failed to load history', err);
+        }
+    };
+
+    const callNextPatient = () => {
+        if (!socket || !doctorId) return;
+        setCallingNext(true);
+        const nextPatient = queue[0];
+        socket.emit('CALL_NEXT_PATIENT', {
+            doctorId,
+            doctorName: profile ? `${profile.first_name} ${profile.last_name}` : 'Doctor',
+            patientName: nextPatient ? `${nextPatient.Patient?.first_name || ''} ${nextPatient.Patient?.last_name || ''}` : 'Next Patient',
+            patientCode: nextPatient?.Patient?.patient_code || '',
+            queuePosition: nextPatient?.queue_position || 1,
+        });
+        setTimeout(() => setCallingNext(false), 3000);
+    };
+
+    const handleDiagnosisChange = (val) => {
+        setDiagnosis(val);
+        const lower = val.toLowerCase();
+        const suggestions = [];
+        Object.keys(DISEASE_SUGGESTIONS).forEach(key => {
+            if (lower.includes(key)) suggestions.push(DISEASE_SUGGESTIONS[key]);
+        });
+        // Also fuzzy match patient history
+        if (patientHistory.length > 0) {
+            const histMatch = patientHistory.filter(p => p.diagnosis && p.diagnosis.toLowerCase().includes(lower));
+            histMatch.forEach(h => {
+                if (h.items?.length > 0) {
+                    suggestions.push({ name: `Previous: ${h.diagnosis}`, items: h.items });
+                }
+            });
+        }
+        setSuggestedTemplates(suggestions.slice(0, 5));
+    };
+
+    const goToConsultation = (patientId) => {
+        navigate(`/doctor/consultation/${patientId}`);
     };
 
     const addMedicine = () => {
@@ -97,11 +193,18 @@ export default function DoctorDashboard() {
 
     const loadTemplate = (template) => { setRxItems([...template.items]); };
 
+    const quickPrescribe = (historyItem) => {
+        if (historyItem.items?.length > 0) setRxItems([...historyItem.items]);
+        if (historyItem.diagnosis) setDiagnosis(historyItem.diagnosis);
+        if (historyItem.notes) setRxNotes(historyItem.notes);
+    };
+
     const sendPrescription = async () => {
         if (rxItems.length === 0) return;
         const prescriptionData = {
             patient_id: selectedPatient?.Patient?.id,
-            doctor_id: profile?.id || user.id,
+            doctor_id: doctorId || user.id,
+            appointment_id: selectedPatient?.id,
             items: rxItems,
             diagnosis,
             notes: rxNotes,
@@ -109,19 +212,16 @@ export default function DoctorDashboard() {
 
         try {
             await api.post('/prescriptions', prescriptionData);
-        } catch (err) { /* Will work when backend is live */ }
-
-        if (socket) {
-            socket.emit('PRESCRIPTION_SENT', {
-                ...prescriptionData,
-                Patient: selectedPatient?.Patient,
-                Doctor: { name: user.name },
-                created_at: new Date().toISOString(),
-            });
+            if (selectedPatient?.id) {
+                await api.patch(`/appointments/${selectedPatient.id}/status`, { status: 'completed' });
+            }
+        } catch (err) {
+            console.error('Prescription send error:', err);
         }
 
         setDeliveryConfirmed(true);
-        setTimeout(() => { setShowPrescription(false); handleStatusChange('available'); }, 3000);
+        loadDashboardData();
+        setTimeout(() => { setShowPrescription(false); applyStatus('available'); }, 3000);
     };
 
     const handleVoiceInput = () => {
@@ -138,10 +238,9 @@ export default function DoctorDashboard() {
         recognition.onend = () => setIsListening(false);
         recognition.onresult = (event) => {
             const transcript = event.results[0][0].transcript;
-            // Simple parsing: "Paracetamol 500mg twice daily for 5 days"
             const words = transcript.split(' ');
             const medicine = words.slice(0, 2).join(' ');
-            setRxItems([...rxItems, { medicine, dosage: words[1] || '', frequency: 'BD (Twice daily)', duration: '5 days', route: 'Oral' }]);
+            setRxItems([...rxItems, { medicine, dosage: words[2] || '', frequency: 'BD (Twice daily)', duration: '5 days', route: 'Oral' }]);
         };
         recognition.start();
     };
@@ -150,11 +249,40 @@ export default function DoctorDashboard() {
 
     return (
         <div className="animate-fade">
+            {/* Leave Confirmation Dialog */}
+            {showLeaveConfirm && (
+                <div className="confirm-overlay" onClick={(e) => { if (e.target === e.currentTarget) setShowLeaveConfirm(false); }}>
+                    <div className="confirm-dialog">
+                        <div className="confirm-icon" style={{ background: 'var(--danger-light)' }}>
+                            <LogOut size={24} color="var(--danger)" />
+                        </div>
+                        <div className="confirm-title">Confirm Leave Status</div>
+                        <div className="confirm-desc">
+                            Setting your status to leave will notify all patients and reception. You won't receive new patients.
+                        </div>
+                        <div className="input-group" style={{ textAlign: 'left', marginBottom: 12 }}>
+                            <label className="input-label">Reason (optional)</label>
+                            <input className="input" placeholder="e.g. Personal emergency, Scheduled off" value={leaveReason} onChange={e => setLeaveReason(e.target.value)} />
+                        </div>
+                        <div className="input-group" style={{ textAlign: 'left', marginBottom: 20 }}>
+                            <label className="input-label">Expected Return Time (optional)</label>
+                            <input className="input" type="time" value={expectedReturn} onChange={e => setExpectedReturn(e.target.value)} />
+                        </div>
+                        <div className="confirm-actions">
+                            <button className="btn btn-outline" onClick={() => setShowLeaveConfirm(false)} style={{ minWidth: 100 }}>Cancel</button>
+                            <button className="btn" style={{ background: 'var(--danger)', color: 'white', minWidth: 140 }} onClick={confirmLeave}>
+                                Confirm Leave
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* Status Selector */}
             <div className="card mb-6">
                 <div className="card-header">
                     <h3 className="card-title">Your Status</h3>
-                    <span className={`badge badge-dot ${status === 'available' ? 'badge-success' : status === 'with_patient' ? 'badge-info' : 'badge-warning'}`}>
+                    <span className={`badge badge-dot ${status === 'available' ? 'badge-success' : status === 'with_patient' ? 'badge-info' : status === 'leave' ? 'badge-danger' : 'badge-warning'}`}>
                         {status.replace('_', ' ')}
                     </span>
                 </div>
@@ -204,18 +332,52 @@ export default function DoctorDashboard() {
                             {/* Diagnosis */}
                             <div className="input-group">
                                 <label className="input-label">Diagnosis</label>
-                                <input className="input" placeholder="e.g. Viral Fever, Upper Respiratory Infection" value={diagnosis} onChange={e => setDiagnosis(e.target.value)} />
+                                <input className="input" placeholder="e.g. Viral Fever, Upper Respiratory Infection" value={diagnosis}
+                                    onChange={e => handleDiagnosisChange(e.target.value)} />
+                                {suggestedTemplates.length > 0 && (
+                                    <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
+                                        {suggestedTemplates.map((t, i) => (
+                                            <button key={i} className="badge badge-info" style={{ cursor: 'pointer', border: 'none', fontSize: 11 }}
+                                                onClick={() => loadTemplate(t)} title="Click to apply">
+                                                💡 {t.name}
+                                            </button>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
 
-                            {/* Templates */}
-                            <div className="mb-4">
-                                <label className="input-label">Quick Templates</label>
-                                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                                    {templates.map(t => (
-                                        <button key={t.id} className="btn btn-outline btn-sm" onClick={() => loadTemplate(t)}>{t.name}</button>
-                                    ))}
+                            {/* Previous History with Quick Prescribe */}
+                            {patientHistory.length > 0 && (
+                                <div style={{ marginBottom: 16, padding: 12, background: 'var(--bg-primary)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border)' }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', marginBottom: 10 }}>
+                                        <History size={13} /> PATIENT HISTORY
+                                    </div>
+                                    <div style={{ display: 'flex', gap: 8, overflowX: 'auto', paddingBottom: 4 }}>
+                                        {patientHistory.slice(0, 4).map(prev => (
+                                            <div key={prev.id} style={{ minWidth: 180, background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', padding: 10, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                                                <div style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-primary)' }}>{new Date(prev.created_at).toLocaleDateString()}</div>
+                                                <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{prev.diagnosis || 'No diagnosis'}</div>
+                                                <div style={{ fontSize: 10, color: 'var(--text-muted)' }}>{prev.items?.length || 0} medicines</div>
+                                                <button className="btn btn-outline btn-sm" style={{ fontSize: 11, marginTop: 4 }} onClick={() => quickPrescribe(prev)}>
+                                                    <Repeat size={10} /> Quick Prescribe
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
                                 </div>
-                            </div>
+                            )}
+
+                            {/* Templates */}
+                            {templates.length > 0 && (
+                                <div className="mb-4">
+                                    <label className="input-label">Quick Templates</label>
+                                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                                        {templates.map(t => (
+                                            <button key={t.id} className="btn btn-outline btn-sm" onClick={() => loadTemplate(t)}>{t.name}</button>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
 
                             {/* Medicines */}
                             <div className="flex items-center justify-between mb-2">
@@ -286,10 +448,19 @@ export default function DoctorDashboard() {
             <div className="card">
                 <div className="card-header">
                     <h3 className="card-title"><span className="live-dot" style={{ marginRight: 8 }}></span>Patient Queue</h3>
-                    <span className="badge badge-primary">{queue.length} patients</span>
+                    <div className="flex items-center gap-3">
+                        <button className={`btn btn-sm ${callingNext ? 'btn-success' : 'btn-outline'}`} onClick={callNextPatient} disabled={callingNext || queue.length === 0}>
+                            <Volume2 size={14} /> {callingNext ? '📢 Calling...' : 'Call Next'}
+                        </button>
+                        <span className="badge badge-primary">{queue.length} patients</span>
+                    </div>
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                    {queue.map((appt, i) => (
+                    {queue.length === 0 ? (
+                        <div style={{ padding: 24, textAlign: 'center', color: 'var(--text-muted)' }}>
+                            {loading ? 'Loading queue...' : 'No patients in queue'}
+                        </div>
+                    ) : queue.map((appt) => (
                         <div key={appt.id} style={{
                             display: 'flex', alignItems: 'center', gap: 14, padding: '14px 16px',
                             background: 'var(--bg-primary)', borderRadius: 'var(--radius-md)',
@@ -304,11 +475,11 @@ export default function DoctorDashboard() {
                                 #{appt.queue_position}
                             </div>
                             <div style={{ flex: 1 }}>
-                                <div style={{ fontSize: 14, fontWeight: 600 }}>{appt.Patient.first_name} {appt.Patient.last_name}</div>
+                                <div style={{ fontSize: 14, fontWeight: 600 }}>{appt.Patient?.first_name} {appt.Patient?.last_name}</div>
                                 <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-                                    {appt.Patient.patient_code} · {appt.Patient.age}y · {appt.primary_symptom}
+                                    {appt.Patient?.patient_code} · {appt.Patient?.age}y · {appt.primary_symptom || 'General'}
                                 </div>
-                                {appt.Patient.allergies?.length > 0 && (
+                                {appt.Patient?.allergies?.length > 0 && (
                                     <div style={{ fontSize: 11, color: 'var(--danger)', fontWeight: 600, marginTop: 2 }}>
                                         ⚠️ Allergies: {appt.Patient.allergies.join(', ')}
                                     </div>
@@ -317,9 +488,14 @@ export default function DoctorDashboard() {
                             <div style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 11, color: 'var(--text-muted)' }}>
                                 <Clock size={12} /> {new Date(appt.scheduled_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                             </div>
-                            <button className="btn btn-primary btn-sm" onClick={() => startConsultation(appt)}>
-                                <FileText size={14} /> Prescribe
-                            </button>
+                            <div style={{ display: 'flex', gap: 6 }}>
+                                <button className="btn btn-outline btn-sm" onClick={() => goToConsultation(appt.Patient?.id)}>
+                                    <FileText size={14} /> Consult
+                                </button>
+                                <button className="btn btn-primary btn-sm" onClick={() => startConsultation(appt)}>
+                                    <Send size={14} /> Prescribe
+                                </button>
+                            </div>
                         </div>
                     ))}
                 </div>

@@ -8,38 +8,42 @@ export default function PharmacyDashboard() {
     const [prescriptions, setPrescriptions] = useState([]);
     const [filter, setFilter] = useState('all');
     const [sosAlert, setSosAlert] = useState(null);
-    const [stats, setStats] = useState({ pending: 3, dispensedToday: 12, totalToday: 15 });
+    const [loading, setLoading] = useState(true);
+    const [stats, setStats] = useState({ pending: 0, dispensedToday: 0, totalToday: 0 });
+
+    const loadPrescriptions = useCallback(async () => {
+        setLoading(true);
+        try {
+            const res = await api.get('/prescriptions?limit=50');
+            const rxList = res.data.prescriptions || res.data || [];
+            const mapped = rxList.map(rx => ({
+                id: rx.id,
+                patient_name: rx.Patient ? `${rx.Patient.first_name} ${rx.Patient.last_name}` : 'Unknown',
+                doctor_name: rx.Doctor?.name || 'Unknown',
+                status: rx.status || 'pending',
+                created_at: rx.created_at,
+                diagnosis: rx.diagnosis || '',
+                items: rx.items || [],
+                notes: rx.notes || '',
+            }));
+            setPrescriptions(mapped);
+
+            // Calculate stats from real data
+            const pending = mapped.filter(p => p.status === 'pending').length;
+            const dispensed = mapped.filter(p => p.status === 'dispensed').length;
+            setStats({ pending, dispensedToday: dispensed, totalToday: mapped.length });
+        } catch (err) {
+            console.error('Prescription load error:', err);
+        } finally {
+            setLoading(false);
+        }
+    }, []);
 
     useEffect(() => {
-        // Mock prescriptions
-        setPrescriptions([
-            {
-                id: '1', patient_name: 'Ravi Kumar', doctor_name: 'Dr. Sharma', status: 'pending',
-                created_at: new Date(Date.now() - 300000).toISOString(), diagnosis: 'Viral Fever',
-                items: [
-                    { medicine: 'Paracetamol 500mg', dosage: '500mg', frequency: 'TID', duration: '5 days' },
-                    { medicine: 'Cetirizine 10mg', dosage: '10mg', frequency: 'HS', duration: '5 days' },
-                ],
-                notes: 'Patient allergic to Penicillin',
-            },
-            {
-                id: '2', patient_name: 'Priya Patel', doctor_name: 'Dr. Gupta', status: 'pending',
-                created_at: new Date(Date.now() - 600000).toISOString(), diagnosis: 'UTI',
-                items: [
-                    { medicine: 'Ciprofloxacin 500mg', dosage: '500mg', frequency: 'BD', duration: '7 days' },
-                    { medicine: 'Cranberry Extract', dosage: '400mg', frequency: 'BD', duration: '14 days' },
-                ],
-            },
-            {
-                id: '3', patient_name: 'Arjun Singh', doctor_name: 'Dr. Reddy', status: 'dispensed',
-                created_at: new Date(Date.now() - 3600000).toISOString(), diagnosis: 'Knee Osteoarthritis',
-                items: [
-                    { medicine: 'Diclofenac 50mg', dosage: '50mg', frequency: 'BD', duration: '7 days' },
-                    { medicine: 'Pantoprazole 40mg', dosage: '40mg', frequency: 'OD', duration: '7 days' },
-                ],
-            },
-        ]);
+        loadPrescriptions();
+    }, [loadPrescriptions]);
 
+    useEffect(() => {
         if (socket) {
             socket.on('PRESCRIPTION_SENT', (data) => {
                 const newRx = {
@@ -57,10 +61,21 @@ export default function PharmacyDashboard() {
             });
 
             socket.on('SOS_ALERT', (data) => { setSosAlert(data); });
+
+            return () => {
+                socket.off('PRESCRIPTION_SENT');
+                socket.off('SOS_ALERT');
+            };
         }
     }, [socket]);
 
-    const handleDispense = (id) => {
+    const handleDispense = async (id) => {
+        try {
+            await api.patch(`/prescriptions/${id}/status`, { status: 'dispensed' });
+        } catch (err) {
+            console.error('Dispense error:', err);
+        }
+
         setPrescriptions(prev => prev.map(p =>
             p.id === id ? { ...p, status: 'dispensed', dispensed_at: new Date().toISOString() } : p
         ));
@@ -98,11 +113,11 @@ export default function PharmacyDashboard() {
                 </div>
                 <div className="stat-card success">
                     <div className="stat-icon success"><CheckCircle size={22} /></div>
-                    <div><div className="stat-value">{stats.dispensedToday}</div><div className="stat-label">Dispensed Today</div></div>
+                    <div><div className="stat-value">{stats.dispensedToday}</div><div className="stat-label">Dispensed</div></div>
                 </div>
                 <div className="stat-card primary">
                     <div className="stat-icon primary"><Package size={22} /></div>
-                    <div><div className="stat-value">{stats.totalToday}</div><div className="stat-label">Total Today</div></div>
+                    <div><div className="stat-value">{stats.totalToday}</div><div className="stat-label">Total</div></div>
                 </div>
             </div>
 
@@ -126,7 +141,9 @@ export default function PharmacyDashboard() {
 
             {/* Prescriptions */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                {filtered.map(rx => (
+                {loading ? (
+                    <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-muted)' }}>Loading prescriptions...</div>
+                ) : filtered.map(rx => (
                     <div key={rx.id} className={`rx-card ${rx.status}`}>
                         <div className="flex items-center justify-between mb-2">
                             <div className="flex items-center gap-3">
@@ -158,7 +175,7 @@ export default function PharmacyDashboard() {
                                     <tbody>
                                         {rx.items.map((item, i) => (
                                             <tr key={i}>
-                                                <td style={{ fontWeight: 600, color: 'var(--text-primary)' }}>💊 {item.medicine}</td>
+                                                <td style={{ fontWeight: 600, color: 'var(--text-primary)' }}>💊 {item.medicine || item.name}</td>
                                                 <td>{item.dosage}</td>
                                                 <td>{item.frequency}</td>
                                                 <td>{item.duration}</td>
@@ -185,7 +202,7 @@ export default function PharmacyDashboard() {
                     </div>
                 ))}
 
-                {filtered.length === 0 && (
+                {!loading && filtered.length === 0 && (
                     <div className="empty-state">
                         <Pill size={48} />
                         <h3>No prescriptions</h3>

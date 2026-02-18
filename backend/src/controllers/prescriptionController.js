@@ -1,7 +1,34 @@
 const { Prescription, PrescriptionTemplate, Patient, Doctor, Medicine, Notification, Appointment } = require('../models');
 const { Op } = require('sequelize');
+const { generatePrescriptionPDF } = require('../services/pdfService');
+const { logger } = require('../middleware/logger');
 
 const prescriptionController = {
+    async downloadPDF(req, res, next) {
+        try {
+            const prescription = await Prescription.findByPk(req.params.id, {
+                include: [
+                    { model: Patient },
+                    { model: Doctor },
+                ],
+            });
+            if (!prescription) return res.status(404).json({ error: 'Prescription not found' });
+
+            const pdfBuffer = await generatePrescriptionPDF({
+                prescription: prescription.toJSON(),
+                patient: prescription.Patient.toJSON(),
+                doctor: prescription.Doctor.toJSON(),
+            });
+
+            res.setHeader('Content-Type', 'application/pdf');
+            res.setHeader('Content-Disposition', `attachment; filename=prescription-${prescription.id.slice(0, 8)}.pdf`);
+            res.send(pdfBuffer);
+        } catch (err) {
+            logger.error(`PDF generation failed: ${err.message}`);
+            next(err);
+        }
+    },
+
     async create(req, res, next) {
         try {
             const { patient_id, doctor_id, appointment_id, items, diagnosis, notes, follow_up_date } = req.body;
