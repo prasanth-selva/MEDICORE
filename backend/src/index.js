@@ -26,7 +26,6 @@ const prescriptionRoutes = require('./routes/prescriptions');
 const inventoryRoutes = require('./routes/inventory');
 const billingRoutes = require('./routes/billing');
 const sosRoutes = require('./routes/sos');
-const sosRoutes = require('./routes/sos');
 
 const dashboardRoutes = require('./routes/dashboard');
 const analyticsRoutes = require('./routes/analytics');
@@ -90,7 +89,6 @@ const mountRoutes = (router) => {
     router.use('/prescriptions', prescriptionRoutes);
     router.use('/inventory', inventoryRoutes);
     router.use('/billing', billingRoutes);
-    router.use('/sos', sosRoutes);
     router.use('/sos', sosRoutes);
 
     router.use('/dashboard', dashboardRoutes);
