@@ -59,10 +59,14 @@ const appointmentController = {
 
     async getAll(req, res, next) {
         try {
-            const { date, doctor_id, status, page = 1, limit = 20 } = req.query;
+            const { date, doctor_id, patient_id, status, page = 1, limit = 20 } = req.query;
             const where = {};
             if (doctor_id) where.doctor_id = doctor_id;
-            if (status) where.status = status;
+            if (patient_id) where.patient_id = patient_id;
+            if (status) {
+                const statuses = status.split(',').map(s => s.trim()).filter(Boolean);
+                where.status = statuses.length > 1 ? { [Op.in]: statuses } : statuses[0];
+            }
             if (date) {
                 const d = new Date(date);
                 const next = new Date(d);

@@ -31,7 +31,7 @@ router.post('/', sosRules, validate, sosController.create);
  *     summary: Acknowledge SOS alert
  *     tags: [SOS]
  */
-router.patch('/:id/acknowledge', authorize('doctor', 'admin', 'receptionist'), ...uuidParam(), validate, sosController.acknowledge);
+router.patch('/:id/acknowledge', authorize('doctor', 'admin', 'receptionist', 'pharmacist'), ...uuidParam(), validate, sosController.acknowledge);
 
 /**
  * @swagger

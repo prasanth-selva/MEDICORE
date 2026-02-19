@@ -27,7 +27,7 @@ export default function Billing() {
             ]);
 
             if (billsRes.status === 'fulfilled') {
-                const bills = billsRes.value.data || [];
+                const bills = billsRes.value.data.bills || billsRes.value.data || [];
                 setInvoices(bills.map(b => ({
                     id: b.invoice_number || `INV-${b.id?.slice(0, 8)}`,
                     dbId: b.id,
@@ -35,9 +35,9 @@ export default function Billing() {
                     amount: parseFloat(b.total_amount) || 0,
                     paid: parseFloat(b.paid_amount) || 0,
                     method: b.payment_method,
-                    status: b.payment_status || 'pending',
+                    status: b.status || 'pending',
                     date: new Date(b.created_at).toLocaleDateString('en-IN'),
-                    items: b.description || 'Consultation',
+                    items: b.notes || (b.items?.length ? `${b.items.length} items` : 'Consultation'),
                 })));
             }
 
@@ -66,13 +66,14 @@ export default function Billing() {
         .filter(i => filter === 'all' || i.status === filter)
         .filter(i => i.patient.toLowerCase().includes(search.toLowerCase()) || i.id.toLowerCase().includes(search.toLowerCase()));
 
-    const methodIcon = { cash: <Banknote size={14} />, card: <CreditCard size={14} />, upi: <Smartphone size={14} />, gpay: <Smartphone size={14} /> };
+    const methodIcon = { cash: <Banknote size={14} />, card: <CreditCard size={14} />, upi: <Smartphone size={14} />, insurance: <CreditCard size={14} /> };
 
     const processPayment = async (invoiceId, dbId, method) => {
         try {
+            const invoice = invoices.find(i => i.id === invoiceId);
             await api.patch(`/billing/${dbId}/pay`, {
                 payment_method: method,
-                amount: invoices.find(i => i.id === invoiceId)?.amount || 0
+                paid_amount: invoice?.amount || 0
             });
             loadBillingData();
         } catch (err) {
@@ -91,10 +92,12 @@ export default function Billing() {
             await api.post('/billing', {
                 patient_id: billForm.patient_id,
                 total_amount: parseFloat(billForm.amount) || 0,
-                description: billForm.description,
+                subtotal: parseFloat(billForm.amount) || 0,
+                tax_amount: 0,
+                discount_amount: 0,
+                items: billForm.description ? [{ name: billForm.description, amount: parseFloat(billForm.amount) || 0 }] : [],
+                notes: billForm.description,
                 payment_method: billForm.payment_method || null,
-                payment_status: billForm.payment_method ? 'paid' : 'pending',
-                paid_amount: billForm.payment_method ? parseFloat(billForm.amount) : 0,
             });
             setBillMsg('✅ Invoice created successfully!');
             loadBillingData();
@@ -248,7 +251,7 @@ export default function Billing() {
                                     <option value="cash">💵 Cash</option>
                                     <option value="card">💳 Card</option>
                                     <option value="upi">📱 UPI</option>
-                                    <option value="gpay">📱 Google Pay</option>
+                                    <option value="insurance">🏥 Insurance</option>
                                 </select>
                             </div>
 

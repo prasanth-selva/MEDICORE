@@ -33,7 +33,7 @@ export default function AdminDoctors() {
         const formData = new FormData();
         formData.append('file', file);
         try {
-            const res = await api.post('/doctors/import', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
+            const res = await api.post('/doctors/import', formData);
             setImportResult(res.data);
             toast.success(`Imported ${res.data.imported}/${res.data.total} doctors`);
             fetchDoctors();

@@ -7,8 +7,13 @@ export default defineConfig({
         port: 3000,
         host: '0.0.0.0',
         proxy: {
-            '/api': { target: 'http://localhost:5000', changeOrigin: true },
-            '/socket.io': { target: 'http://localhost:5000', ws: true },
+            '/api': { target: process.env.PROXY_BACKEND || 'http://localhost:5000', changeOrigin: true },
+            '/socket.io': { target: process.env.PROXY_BACKEND || 'http://localhost:5000', ws: true },
+            '/ai': {
+                target: process.env.PROXY_AI || 'http://localhost:8000',
+                changeOrigin: true,
+                rewrite: (path) => path.replace(/^\/ai/, ''),
+            },
         },
     },
 });

@@ -107,10 +107,16 @@ const appointmentRules = [
     body('doctor_id')
         .isUUID().withMessage('Valid doctor ID is required'),
     body('scheduled_time')
+        .optional()
         .isISO8601().withMessage('Valid scheduled time is required')
         .custom((value) => {
-            if (new Date(value) <= new Date()) {
-                throw new Error('Scheduled time must be in the future');
+            const scheduled = new Date(value);
+            const now = new Date();
+            // Allow same-day appointments — only reject if the date is before today
+            const scheduledDate = new Date(scheduled.getFullYear(), scheduled.getMonth(), scheduled.getDate());
+            const todayDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+            if (scheduledDate < todayDate) {
+                throw new Error('Scheduled date must be today or in the future');
             }
             return true;
         }),

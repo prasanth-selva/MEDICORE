@@ -33,7 +33,7 @@ export default function AdminPatients() {
         const formData = new FormData();
         formData.append('file', file);
         try {
-            const res = await api.post('/patients/import', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
+            const res = await api.post('/patients/import', formData);
             toast.success(`Imported ${res.data.imported}/${res.data.total} patients`);
             if (res.data.errors?.length > 0) toast.error(`${res.data.errors.length} rows had errors`);
             fetchPatients();

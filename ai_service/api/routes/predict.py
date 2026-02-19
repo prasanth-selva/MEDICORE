@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 from typing import Optional, List
+import os
 import random
 import math
 from datetime import datetime, timedelta
@@ -112,7 +113,7 @@ MEDICINE_MAP = {
     },
 }
 
-BACKEND_URL = "http://localhost:5000/api"
+BACKEND_URL = os.environ.get("BACKEND_URL", "http://backend:5000/api")
 
 # ─── Request/Response Models ───────────────────────────────
 class PredictionRequest(BaseModel):
@@ -344,34 +345,4 @@ async def get_real_stats(region: str = "Overall", days: int = 30):
     return result
 
 
-# ─── Drug Interaction Checker ──────────────────────────────
-KNOWN_INTERACTIONS = [
-    {"drug1": "Warfarin", "drug2": "Aspirin", "severity": "high", "description": "Increased risk of bleeding. Both drugs thin blood through different mechanisms."},
-    {"drug1": "Metformin", "drug2": "Alcohol", "severity": "high", "description": "Risk of lactic acidosis. Alcohol impairs liver's ability to clear metformin."},
-    {"drug1": "Lisinopril", "drug2": "Potassium", "severity": "medium", "description": "Risk of hyperkalemia. ACE inhibitors can increase potassium levels."},
-    {"drug1": "Simvastatin", "drug2": "Grapefruit", "severity": "medium", "description": "Grapefruit increases statin levels, raising risk of muscle damage."},
-    {"drug1": "Omeprazole", "drug2": "Clopidogrel", "severity": "high", "description": "Omeprazole reduces effectiveness of Clopidogrel antiplatelet action."},
-    {"drug1": "Metformin", "drug2": "Contrast dye", "severity": "high", "description": "Risk of kidney damage and lactic acidosis during contrast imaging."},
-    {"drug1": "Amlodipine", "drug2": "Simvastatin", "severity": "medium", "description": "Amlodipine can increase simvastatin levels, raising muscle damage risk."},
-]
-
-@router.post("/interactions")
-async def check_interactions(req: InteractionRequest):
-    if len(req.drugs) < 2:
-        return {"safe": True, "warnings": [], "checked_drugs": req.drugs}
-
-    warnings = []
-    drug_list = [d.strip().lower() for d in req.drugs]
-
-    for interaction in KNOWN_INTERACTIONS:
-        d1 = interaction["drug1"].lower()
-        d2 = interaction["drug2"].lower()
-        if any(d1 in drug for drug in drug_list) and any(d2 in drug for drug in drug_list):
-            warnings.append(interaction)
-
-    return {
-        "safe": len(warnings) == 0,
-        "warnings": warnings,
-        "checked_drugs": req.drugs,
-        "total_checked": len(req.drugs),
-    }
+# Drug interaction checker is handled by the dedicated interactions router at /check/interactions

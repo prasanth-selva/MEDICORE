@@ -1,4 +1,4 @@
-const { Prescription, PrescriptionTemplate, Patient, Doctor, Medicine, Notification, Appointment } = require('../models');
+const { Prescription, PrescriptionTemplate, Patient, Doctor, Medicine, Notification, Appointment, Billing } = require('../models');
 const { Op } = require('sequelize');
 const { generatePrescriptionPDF } = require('../services/pdfService');
 const { logger } = require('../middleware/logger');
@@ -57,6 +57,53 @@ const prescriptionController = {
                 message: `Dr. ${full.Doctor.name} sent prescription for ${full.Patient.first_name} ${full.Patient.last_name}`,
                 type: 'prescription',
             });
+
+            // Auto-create a pending billing record for this consultation
+            try {
+                const doctor = await Doctor.findByPk(doctor_id);
+                const consultationFee = parseFloat(doctor?.consultation_fee) || 0;
+
+                // Calculate medicine costs from prescription items
+                let medicineCost = 0;
+                const billingItems = [];
+                if (items && Array.isArray(items)) {
+                    for (const item of items) {
+                        const medName = item.medicine_name || item.medicine || item.name || '';
+                        const med = await Medicine.findOne({ where: { name: { [Op.iLike]: `%${medName}%` } } });
+                        const price = med ? parseFloat(med.unit_price) : 0;
+                        const qty = parseInt(item.quantity) || 1;
+                        medicineCost += price * qty;
+                        billingItems.push({ name: medName, quantity: qty, amount: price * qty });
+                    }
+                }
+
+                // Add consultation fee as a billing item
+                if (consultationFee > 0) {
+                    billingItems.unshift({ name: 'Consultation Fee', quantity: 1, amount: consultationFee });
+                }
+
+                const totalAmount = consultationFee + medicineCost;
+                const invoiceNumber = 'INV-' + new Date().getFullYear() + '-' + String(Date.now()).slice(-6);
+
+                await Billing.create({
+                    patient_id,
+                    prescription_id: prescription.id,
+                    appointment_id: appointment_id || null,
+                    items: billingItems,
+                    subtotal: totalAmount,
+                    tax_amount: 0,
+                    discount_amount: 0,
+                    total_amount: totalAmount,
+                    paid_amount: 0,
+                    status: 'pending',
+                    invoice_number: invoiceNumber,
+                    notes: `Consultation with ${full.Doctor.name} — ${diagnosis || 'General consultation'}`,
+                });
+                logger.info(`Auto-created billing record ${invoiceNumber} for prescription ${prescription.id}`);
+            } catch (billingErr) {
+                logger.error(`Auto-billing creation failed: ${billingErr.message}`);
+                // Don't fail the prescription creation if billing fails
+            }
 
             res.status(201).json(full);
         } catch (err) { next(err); }

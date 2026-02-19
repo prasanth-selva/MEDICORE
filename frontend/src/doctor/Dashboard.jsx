@@ -62,10 +62,11 @@ export default function DoctorDashboard() {
         if (!doctorId) return;
         setLoading(true);
         try {
-            const [queueRes, statsRes, templatesRes] = await Promise.allSettled([
+            const [queueRes, statsRes, templatesRes, doctorRes] = await Promise.allSettled([
                 api.get(`/doctors/${doctorId}/queue`),
                 api.get(`/doctors/${doctorId}/stats`),
                 api.get(`/prescriptions/templates?doctor_id=${doctorId}`),
+                api.get(`/doctors/${doctorId}`),
             ]);
 
             if (queueRes.status === 'fulfilled') setQueue(queueRes.value.data || []);
@@ -73,6 +74,10 @@ export default function DoctorDashboard() {
             if (templatesRes.status === 'fulfilled') {
                 const tpls = templatesRes.value.data || [];
                 setTemplates(tpls.map(t => ({ id: t.id, name: t.name, items: t.items || [] })));
+            }
+            // Load the doctor's current status from the database
+            if (doctorRes.status === 'fulfilled' && doctorRes.value.data?.status) {
+                setStatus(doctorRes.value.data.status);
             }
         } catch (err) {
             console.error('Doctor dashboard load error:', err);

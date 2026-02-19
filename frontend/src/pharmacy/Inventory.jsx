@@ -25,7 +25,7 @@ export default function Inventory() {
         setLoading(true);
         try {
             const res = await api.get('/inventory/medicines');
-            const meds = res.data || [];
+            const meds = res.data?.medicines || res.data || [];
             setMedicines(meds.map(m => ({
                 ...m,
                 reorder_level: m.reorder_point || m.reorder_level || 0,
@@ -68,9 +68,7 @@ export default function Inventory() {
         const formData = new FormData();
         formData.append('file', file);
         try {
-            const { data } = await api.post('/inventory/import', formData, {
-                headers: { 'Content-Type': 'multipart/form-data' },
-            });
+            const { data } = await api.post('/inventory/import', formData);
             setImportResult(data);
             loadMedicines();
         } catch (err) {
@@ -188,7 +186,7 @@ export default function Inventory() {
                                         {(m.current_stock || 0).toLocaleString()}
                                     </td>
                                     <td>{(m.reorder_level || 0).toLocaleString()}</td>
-                                    <td>₹{(m.unit_price || 0).toFixed(2)}</td>
+                                    <td>₹{parseFloat(m.unit_price || 0).toFixed(2)}</td>
                                     <td><span className={`badge ${statusBadge[m.status]} badge-dot`}>{statusLabel[m.status]}</span></td>
                                 </tr>
                             ))}

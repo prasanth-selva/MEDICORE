@@ -1,4 +1,5 @@
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { Toaster } from 'react-hot-toast';
 import { AuthProvider, useAuth } from './shared/context/AuthContext';
 import { SocketProvider } from './shared/context/SocketContext';
 import ErrorBoundary from './shared/components/ErrorBoundary';
@@ -109,6 +110,7 @@ export default function App() {
             <AuthProvider>
                 <SocketProvider>
                     <AppRoutes />
+                    <Toaster position="top-right" toastOptions={{ duration: 3000 }} />
                 </SocketProvider>
             </AuthProvider>
         </ErrorBoundary>

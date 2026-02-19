@@ -35,12 +35,12 @@ export default function MyRecords() {
                 }
 
                 if (histRes.status === 'fulfilled') {
-                    const hist = histRes.value.data.appointments || histRes.value.data || [];
+                    const hist = histRes.value.data.diseases || histRes.value.data || [];
                     setVisits(hist.map(v => ({
-                        date: new Date(v.scheduled_time || v.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }),
+                        date: new Date(v.diagnosed_date || v.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }),
                         doctor: v.Doctor?.name || 'Doctor',
-                        type: v.type || 'Consultation',
-                        diagnosis: v.diagnosis || v.primary_symptom || 'General',
+                        type: v.severity || 'Consultation',
+                        diagnosis: v.diagnosis_name || v.diagnosis || 'General',
                         notes: v.notes || '',
                     })));
                 }

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Brain, TrendingUp, AlertTriangle, Package, RefreshCw, Shield, X, Pill } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
-const AI_URL = import.meta.env.VITE_AI_URL || 'http://localhost:8000';
+const AI_URL = import.meta.env.VITE_AI_URL || '/ai';
 
 export default function AIPredictions() {
     const [diseaseData, setDiseaseData] = useState([]);
@@ -63,7 +63,7 @@ export default function AIPredictions() {
         setCheckingInteraction(true);
         try {
             const drugs = interactionDrugs.split(',').map(d => d.trim()).filter(Boolean);
-            const res = await fetch(`${AI_URL}/predict/interactions`, {
+            const res = await fetch(`${AI_URL}/check/interactions`, {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ drugs })
             }).then(r => r.json());

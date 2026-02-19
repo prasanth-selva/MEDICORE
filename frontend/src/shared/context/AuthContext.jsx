@@ -20,12 +20,15 @@ export function AuthProvider({ children }) {
     useEffect(() => {
         const token = localStorage.getItem('medicore_token');
         const demoUser = localStorage.getItem('medicore_demo_user');
-        if (demoUser) {
-            // Restore demo session
-            const u = JSON.parse(demoUser);
-            setUser(u);
+        // Clear stale demo sessions — force re-login with real backend auth
+        if (demoUser || token === 'demo-token') {
+            localStorage.removeItem('medicore_demo_user');
+            localStorage.removeItem('medicore_token');
+            localStorage.removeItem('medicore_refresh_token');
             setLoading(false);
-        } else if (token) {
+            return;
+        }
+        if (token) {
             loadProfile();
         } else {
             setLoading(false);
@@ -55,8 +58,9 @@ export function AuthProvider({ children }) {
             setProfile(data.profile);
             return data;
         } catch (err) {
-            // Fall back to demo mode if backend is unavailable OR if using a demo email
-            if (isDemoEmail) {
+            // Fall back to demo mode ONLY if backend is unreachable (network error)
+            const isNetworkError = !err.response;
+            if (isDemoEmail && isNetworkError) {
                 return demoLogin(email);
             }
             throw err;

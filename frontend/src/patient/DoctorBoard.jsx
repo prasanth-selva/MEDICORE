@@ -94,6 +94,7 @@ export default function DoctorBoard() {
             await api.post('/appointments', {
                 patient_id: patientId,
                 doctor_id: showBooking.id,
+                scheduled_time: new Date(`${bookingForm.date}T${bookingForm.time || '10:00'}:00`).toISOString(),
                 appointment_date: bookingForm.date,
                 appointment_time: bookingForm.time,
                 reason: bookingForm.reason,

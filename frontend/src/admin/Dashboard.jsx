@@ -174,9 +174,7 @@ export default function AdminDashboard() {
 
         try {
             const endpoint = importType === 'doctor' ? '/doctors/import' : '/inventory/import';
-            const { data } = await api.post(endpoint, formData, {
-                headers: { 'Content-Type': 'multipart/form-data' },
-            });
+            const { data } = await api.post(endpoint, formData);
             setImportResult(data);
             loadDashboardData();
         } catch (err) {

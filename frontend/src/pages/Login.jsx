@@ -16,7 +16,7 @@ export default function Login() {
     const { login, register, demoLogin } = useAuth();
     const navigate = useNavigate();
 
-    const routes = { admin: '/admin', receptionist: '/admin', doctor: '/doctor', pharmacist: '/pharmacy', patient: '/patient' };
+    const routes = { admin: '/admin', receptionist: '/reception', doctor: '/doctor', pharmacist: '/pharmacy', patient: '/patient' };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -31,7 +31,12 @@ export default function Login() {
                 navigate(routes[role] || '/');
             }
         } catch (err) {
-            setError(err.response?.data?.error || 'Something went wrong');
+            const data = err.response?.data;
+            if (data?.details?.length) {
+                setError(data.details.map(d => d.message).join('. '));
+            } else {
+                setError(data?.error || 'Something went wrong');
+            }
         } finally {
             setLoading(false);
         }
@@ -115,12 +120,17 @@ export default function Login() {
                         <label className="input-label">Password</label>
                         <div style={{ position: 'relative' }}>
                             <input className="input" type={showPw ? 'text' : 'password'} placeholder="••••••••" value={password}
-                                onChange={e => setPassword(e.target.value)} required style={{ paddingRight: 44 }} />
+                                onChange={e => setPassword(e.target.value)} required minLength={isLogin ? undefined : 8} style={{ paddingRight: 44 }} />
                             <button type="button" onClick={() => setShowPw(!showPw)}
                                 style={{ position: 'absolute', right: 12, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-muted)' }}>
                                 {showPw ? <EyeOff size={18} /> : <Eye size={18} />}
                             </button>
                         </div>
+                        {!isLogin && (
+                            <span style={{ fontSize: 11, color: 'var(--text-muted)', marginTop: 4, display: 'block' }}>
+                                Min 8 chars, 1 uppercase, 1 lowercase, 1 number
+                            </span>
+                        )}
                     </div>
 
                     {!isLogin && (

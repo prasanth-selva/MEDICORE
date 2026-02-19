@@ -37,7 +37,7 @@ export default function Consultation() {
         try {
             const [patientRes, historyRes] = await Promise.all([
                 api.get(`/patients/${id}`),
-                api.get(`/patients/${id}/history`).catch(() => ({ data: { appointments: [], prescriptions: [] } })),
+                api.get(`/patients/${id}/history`).catch(() => ({ data: { diseases: [], prescriptions: [] } })),
             ]);
             setPatient(patientRes.data);
             setHistory(historyRes.data);
@@ -313,18 +313,18 @@ export default function Consultation() {
                             </div>
                         )}
 
-                        {history.appointments?.length > 0 && (
+                        {history.diseases?.length > 0 && (
                             <>
                                 <h4 style={{ marginTop: 20, marginBottom: 8, fontSize: 13, fontWeight: 600 }}>
-                                    Recent Appointments
+                                    Disease History
                                 </h4>
-                                {history.appointments.slice(0, 5).map(apt => (
-                                    <div key={apt.id} style={{
+                                {history.diseases.slice(0, 5).map((d, idx) => (
+                                    <div key={d.id || idx} style={{
                                         padding: '8px 0', borderBottom: '1px solid var(--border-light)',
                                         fontSize: 12, display: 'flex', justifyContent: 'space-between',
                                     }}>
-                                        <span>{new Date(apt.scheduled_time).toLocaleString()}</span>
-                                        <span className={`badge badge-${apt.status === 'completed' ? 'success' : 'info'}`}>{apt.status}</span>
+                                        <span>{d.diagnosis_name || d.diagnosis || 'Unknown'}</span>
+                                        <span style={{ color: 'var(--text-muted)' }}>{d.diagnosed_date ? new Date(d.diagnosed_date).toLocaleDateString() : ''}</span>
                                     </div>
                                 ))}
                             </>

@@ -60,6 +60,7 @@ services:
     environment:
       DATABASE_URL: postgresql://medicore_admin:medicore_secure_2024@postgres:5432/medicore
       REDIS_URL: redis://:medicore_redis_2024@redis:6379/0
+      BACKEND_URL: http://backend:5000/api
     ports:
       - "8000:8000"
     depends_on:
@@ -75,10 +76,23 @@ services:
     ports:
       - "3000:3000"
     environment:
-      - VITE_API_URL=http://localhost:5000/api
-      - VITE_SOCKET_URL=http://localhost:5000
+      - PROXY_BACKEND=http://backend:5000
+      - PROXY_AI=http://ai_service:8000
     depends_on:
       - backend
+    restart: unless-stopped
+
+  nginx:
+    build:
+      context: ./nginx
+      dockerfile: Dockerfile
+    container_name: medicore_nginx
+    ports:
+      - "80:80"
+    depends_on:
+      - frontend
+      - backend
+      - ai_service
     restart: unless-stopped
 
 volumes:
