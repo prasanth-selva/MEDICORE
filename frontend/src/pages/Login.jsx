@@ -48,10 +48,17 @@ export default function Login() {
         try {
             setEmail(demoEmail);
             setPassword('admin123');
-            const data = await login(demoEmail, 'admin123');
+            // Try real backend first, fall back to demo mode if unavailable
+            let data;
+            try {
+                data = await login(demoEmail, 'admin123');
+            } catch (backendErr) {
+                // If backend is down, use demo login directly
+                data = demoLogin(demoEmail);
+            }
             navigate(routes[data.user.role || demoRole] || '/');
         } catch (err) {
-            setError(err.response?.data?.error || 'Something went wrong');
+            setError(err.response?.data?.error || 'Backend not available — demo login failed.');
         } finally {
             setLoading(false);
         }
